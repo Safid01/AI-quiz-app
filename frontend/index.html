@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>NeuroQuiz Web</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; }
+    .question { margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+  <h1>NeuroQuiz (Localhost Demo)</h1>
+
+  <h2>Admin: Generate Quiz</h2>
+  <input id="topic" placeholder="Topic" value="Machine Learning" />
+  <input id="count" type="number" value="5" />
+  <button onclick="generateQuiz()">Generate</button>
+
+  <hr />
+
+  <h2>User: Take Quiz</h2>
+  <div id="quiz"></div>
+  <button onclick="submitQuiz()">Submit</button>
+
+  <pre id="result"></pre>
+
+<script>
+let currentQuizId = null;
+let currentQuiz = null;
+
+async function generateQuiz() {
+  const topic = document.getElementById("topic").value;
+  const count = parseInt(document.getElementById("count").value);
+
+  const res = await fetch("http://127.0.0.1:8000/api/admin/generate-quiz", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      topic: topic,
+      difficulty: "Hard",
+      count: count,
+      duration_sec: 300
+    })
+  });
+
+  const data = await res.json();
+  currentQuizId = data.quiz_id;
+  currentQuiz = data.quiz;
+  renderQuiz();
+}
+
+function renderQuiz() {
+  const div = document.getElementById("quiz");
+  div.innerHTML = "";
+
+  currentQuiz.questions.forEach((q, i) => {
+    const qDiv = document.createElement("div");
+    qDiv.className = "question";
+    qDiv.innerHTML = "<strong>" + (i+1) + ". " + q.question_text + "</strong><br/>";
+
+    q.options.forEach((opt, idx) => {
+      qDiv.innerHTML += `
+        <label>
+          <input type="radio" name="q${i}" value="${idx}" />
+          ${opt}
+        </label><br/>
+      `;
+    });
+
+    div.appendChild(qDiv);
+  });
+}
+
+async function submitQuiz() {
+  const answers = {};
+  currentQuiz.questions.forEach((q, i) => {
+    const radios = document.getElementsByName("q" + i);
+    radios.forEach(r => {
+      if (r.checked) answers[i] = parseInt(r.value);
+    });
+  });
+
+  const res = await fetch(`http://127.0.0.1:8000/api/attempts/${currentQuizId}/submit`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ answers: answers })
+  });
+
+  const data = await res.json();
+  document.getElementById("result").textContent = JSON.stringify(data, null, 2);
+}
+</script>
+</body>
+</html>
